@@ -1,0 +1,38 @@
+{
+  "users": {
+    "u0": "admin",
+    "u1": "Guest"
+  },
+  "messages": [
+    {
+      "uuid": "u1",
+      "username": "Guest",
+      "message_content": "hello there"
+    },
+    {
+      "uuid": "u1",
+      "username": "Guest",
+      "message_content": "this is a testr"
+    },
+    {
+      "uuid": "u1",
+      "username": "Guest",
+      "message_content": "exit"
+    },
+    {
+      "uuid": "u1",
+      "username": "Guest",
+      "message_content": "new test"
+    },
+    {
+      "uuid": "u1",
+      "username": "Guest",
+      "message_content": "not so final test for this shit"
+    },
+    {
+      "uuid": "u1",
+      "username": "Guest",
+      "message_content": "yo"
+    }
+  ]
+}
