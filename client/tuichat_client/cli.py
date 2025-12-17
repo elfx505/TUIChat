@@ -1,7 +1,9 @@
 import typer
 from rich import print
+from rich.table import Table
 
-from .user_config import get_host, get_port, set_host, set_port, set_username
+from .user_config import (get_host, get_port, load_config, set_host, set_port,
+                          set_username)
 
 app = typer.Typer()
 
@@ -56,6 +58,29 @@ def chport(port: str):
     set_port(port)
 
     print(f"New port number: [green]{port}[/green]")
+
+
+@app.command()
+def conf():
+    """
+    Display the current user configuration found in user_conf.json.
+    """
+    # Get data
+    data = load_config()
+
+    # Create a table
+    table = Table(title="\nUser Info")  # Optional title
+
+    # Add columns
+    table.add_column("Field", style="cyan", no_wrap=True)
+    table.add_column("Value", style="magenta")
+
+    # Add rows from the dictionary
+    for key, value in data.items():
+        table.add_row(key, str(value))
+
+    # Print the table
+    print(table)
 
 
 # pip entry point
