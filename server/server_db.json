@@ -33,6 +33,16 @@
       "uuid": "u1",
       "username": "Guest",
       "message_content": "yo"
+    },
+    {
+      "uuid": "u1",
+      "username": "Guest",
+      "message_content": "hello"
+    },
+    {
+      "uuid": "u1",
+      "username": "Guest",
+      "message_content": "wuddup"
     }
   ]
 }

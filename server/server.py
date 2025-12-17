@@ -7,7 +7,7 @@ from threading import Thread
 HOST = "127.0.0.1"
 PORT = 7632
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-DB_FILE_PATH = Path(BASE_DIR) / ".." / ".." / "data" / "server_db.json"
+DB_FILE_PATH = Path(BASE_DIR) / "server_db.json"
 MAX_CONNECTIONS = 10
 
 connected_users = []

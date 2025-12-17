@@ -2,10 +2,14 @@ import json
 import os
 from pathlib import Path
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-CONFIG_PATH = Path(BASE_DIR) / ".." / ".." / "data" / "user_conf.json"
+# BASE_DIR = Path.home() / ".config" / "tuichat"
+# CONFIG_PATH = CONFIG_DIR / "user_conf.json"
 
-DEFAULT_CONFIG = {"uuid": "u_", "username": "Guest"}
+# Temporary user_conf location for testing purposes
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+CONFIG_PATH = Path(BASE_DIR) / ".." / "user_conf.json"
+
+DEFAULT_CONFIG = {"host": "", "port": "", "uuid": "u_", "username": "Guest"}
 
 
 def load_config() -> dict:
