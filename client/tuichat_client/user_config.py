@@ -86,3 +86,23 @@ def set_username(username: str):
     cfg = load_config()
     cfg["username"] = username
     save_config(cfg)
+
+
+def set_host(hostname: str):
+    """
+    Sets the value of key "host" in config file at CONFIG_PATH.
+
+    """
+    cfg = load_config()
+    cfg["host"] = hostname
+    save_config(cfg)
+
+
+def set_port(port: str):
+    """
+    Sets the value of key "port" in config file at CONFIG_PATH.
+
+    """
+    cfg = load_config()
+    cfg["port"] = port
+    save_config(cfg)
