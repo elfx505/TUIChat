@@ -39,25 +39,15 @@ def chuser(username: str):
 
 
 @app.command()
-def chhost(hostname: str):
+def chaddress(hostname: str, port: str):
     """
-    Set a new hostname. Changes the user_conf.json config file.
+    Set a new server address to connect to. Changes the user_conf.json config file.
     """
 
     set_host(hostname)
-
-    print(f"New hostname: [green]{hostname}[/green]")
-
-
-@app.command()
-def chport(port: str):
-    """
-    Set a new port number. Changes the user_conf.json config file.
-    """
-
     set_port(port)
 
-    print(f"New port number: [green]{port}[/green]")
+    print(f"New server address: [green]{hostname}:{port}[/green]")
 
 
 @app.command()
