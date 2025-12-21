@@ -41,21 +41,33 @@ def listen(server_socket):
         client_socket, address = server_socket.accept()
         print(f"[CONNECTED] {address} connected.")
 
+        # Load DB
+        db = json.loads(DB_FILE_PATH.read_text())
+
         message_dict = json.loads(client_socket.recv(1024).decode("utf-8"))
 
         username = message_dict.get("username")
         user_id = message_dict.get("uuid")
-        # First message will be the /register message
-        if user_id == "u_":
-            user_id = generate_uuid()
-            # Send message containing Identity (UUID) to user
-            client_socket.send(str(user_id).encode())
 
-            # Load DB
-            db = json.loads(DB_FILE_PATH.read_text())
+        # Check if username is already in the server db
+        if username in db["users"] and user_id != db["users"][username]:
+            # Refuse connection if it is the case
+            client_socket.send("UsernameInUseError".encode())
+            return
 
-            # Edit db in memory
-            db["users"][user_id] = username
+        # Accept connection if not
+        if username not in db["users"]:
+            # Remove username associated with current user ID of connecting client
+            db["users"] = {
+                name: uuid for name, uuid in db["users"].items() if uuid != user_id
+            }
+
+            # Add username to db
+            if user_id == "u_":
+                user_id = generate_uuid(db["users"])
+                client_socket.send(str(user_id).encode())
+
+            db["users"][username] = user_id
 
             # Update db in persistent memory
             DB_FILE_PATH.write_text(json.dumps(db, indent=2))
@@ -123,10 +135,13 @@ def broadcast_message(
             client_socket.send(message.encode())
 
 
-def generate_uuid() -> str:
-    db = json.loads(DB_FILE_PATH.read_text())
-    next_uuid = len(db["users"])
-    return f"u{str(next_uuid)}"
+# Iterate through until you find an available username and return it
+def generate_uuid(user_db: dict) -> str:
+    used = set(user_db.values())
+    i = 0
+    while f"u{i}" in used:
+        i += 1
+    return f"u{i}"
 
 
 def start_server():
