@@ -44,7 +44,7 @@ def receive_message():
     while True:
         server_message = s.recv(1024).decode()
         if not server_message.strip():
-            print("Server is offline!")
+            print("\033[1;31;40mConnection to server closed!\033[0m")
             os._exit(0)
 
         print("\033[1;31;40m" + str(server_message) + "\033[0m")
