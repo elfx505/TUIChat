@@ -3,4 +3,5 @@ __pycache__/
 .env
 venv/
 *.egg-info/
+user_conf.json
 

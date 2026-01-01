@@ -1,18 +1,8 @@
 {
   "users": {
     "admin": "u0",
-    "brian": "u1"
+    "elfx": "u1",
+    "elfx_arch": "u2"
   },
-  "messages": [
-    {
-      "uuid": "u1",
-      "username": "brian",
-      "message_content": "yo"
-    },
-    {
-      "uuid": "u1",
-      "username": "brian",
-      "message_content": "who am I ?"
-    }
-  ]
+  "messages": []
 }

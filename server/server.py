@@ -4,7 +4,7 @@ import socket
 from pathlib import Path
 from threading import Thread
 
-HOST = "127.0.0.1"
+HOST = "0.0.0.0"
 PORT = 7632
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DB_FILE_PATH = Path(BASE_DIR) / "server_db.json"
@@ -53,7 +53,8 @@ def listen(server_socket):
         if username in db["users"] and user_id != db["users"][username]:
             # Refuse connection if it is the case
             client_socket.send("UsernameInUseError".encode())
-            return
+            client_socket.close()
+            continue
 
         # Accept connection if not
         if username not in db["users"]:
