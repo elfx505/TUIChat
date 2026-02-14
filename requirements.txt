@@ -1,0 +1,8 @@
+# Core CLI and TUI Frameworks
+typer>=0.12.0
+textual>=0.50.0
+rich>=13.0.0
+bcrypt >= 5.0.0
+
+# Optional
+shellingham>=1.5.0  # Helps Typer with shell completion

@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "tuichat"
 version = "0.1.0"
-dependencies = ["typer", "textual"]
+dependencies = ["typer", "textual", "rich"]
 
 [project.scripts]
 tuichat = "tuichat_client.cli:main"

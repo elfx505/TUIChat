@@ -1,39 +1,26 @@
-import json
+import sqlite3
+import bcrypt
 import os
 import socket
 from pathlib import Path
 from threading import Thread
+from server_db_config import (
+    create_db,
+    update_user,
+    add_message,
+    add_user,
+    get_user,
+    register_user,
+    save_message,
+)
 
 HOST = "0.0.0.0"
 PORT = 7632
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DB_FILE_PATH = Path(BASE_DIR) / "server_db.json"
-MAX_CONNECTIONS = 10
+MAX_CONNECTIONS = 5
 
 connected_users = []
-
-
-def send_message(sock, message_dict):
-    print(message_dict)
-    data = json.dumps(message_dict).encode("utf-8")
-    sock.send(data)
-
-
-def append_message_to_db(message_dict):
-    message_to_append = {
-        "uuid": message_dict["uuid"],
-        "username": message_dict["username"],
-        "message_content": message_dict["message_content"],
-    }
-
-    # Load DB
-    db = json.loads(DB_FILE_PATH.read_text())
-
-    # Edit db in memory
-    db["messages"].append(message_to_append)
-
-    # Update db in persistent memory
-    DB_FILE_PATH.write_text(json.dumps(db, indent=2))
 
 
 def listen(server_socket):
@@ -41,51 +28,36 @@ def listen(server_socket):
         client_socket, address = server_socket.accept()
         print(f"[CONNECTED] {address} connected.")
 
-        # Load DB
-        db = json.loads(DB_FILE_PATH.read_text())
+        auth_message = client_socket.recv(1024).decode("utf-8")
 
-        message_dict = json.loads(client_socket.recv(1024).decode("utf-8"))
+        username, password = auth_message.split("#")
 
-        username = message_dict.get("username")
-        user_id = message_dict.get("uuid")
+        # Hash Password with bcrypt
+        salt = bcrypt.gensalt()
+        hash_pass = bcrypt.hashpw(password, salt)
 
         # Check if username is already in the server db
-        if username in db["users"] and user_id != db["users"][username]:
-            # Refuse connection if it is the case
-            client_socket.send("UsernameInUseError".encode())
+        user_data = get_user(username)
+        if user_data:
+            # Check Hash to confirm identity
+            is_authentic: bool = bcrypt.checkpw(user_data["password"], hash_pass)
+
+        if not is_authentic:
+            client_socket.send("Authentication failed!".encode("utf-8"))
             client_socket.close()
             continue
 
-        # Accept connection if not
-        if username not in db["users"]:
-            # Remove username associated with current user ID of connecting client
-            db["users"] = {
-                name: uuid for name, uuid in db["users"].items() if uuid != user_id
-            }
-
-            # Add username to db
-            if user_id == "u_":
-                user_id = generate_uuid(db["users"])
-                client_socket.send(str(user_id).encode())
-
-            db["users"][username] = user_id
-
-            # Update db in persistent memory
-            DB_FILE_PATH.write_text(json.dumps(db, indent=2))
-
-        # Create new client object
-        client = {
-            "username": username,
-            "uuid": user_id,
-            "client_socket": client_socket,
-        }
+        # If the username does not exist
+        if not user_data:
+            register_user(username, hash_pass)
 
         # Add new client object to connected_users list
+        client = get_user(username)
         connected_users.append(client)
         print(connected_users)
 
         broadcast_message(
-            username, user_id, "", " has joined the chat!"
+            username, client["user_uuid"], "", " has joined the chat!"
         )  # Entered the chat message
 
         Thread(target=handle_client, args=(client,)).start()
@@ -94,20 +66,20 @@ def listen(server_socket):
 def handle_client(client):
 
     username = client["username"]
-    user_id = client["uuid"]
+    user_id = client["user_uuid"]
     client_socket = client["client_socket"]
 
     while True:
 
         # Listen for message from client
         data = client_socket.recv(1024)
-        message_dict = json.loads(data.decode("utf-8"))
-        message_content = message_dict.get("message_content")
+        message_content = data.decode("utf-8")
 
         if message_content.strip() == "/exit" or not message_content.strip():
             broadcast_message(
                 username, user_id, "", " has left the chat!"
             )  # Left The Chat Message
+
             connected_users.remove(client)
             client_socket.close()
             break
@@ -117,32 +89,23 @@ def handle_client(client):
             )  # Broadcast actual message across channel clients
 
         # Append message to db
-        append_message_to_db(message_dict)
+        save_message(user_id, message_content)
 
 
 def broadcast_message(
     username: str, uuid: str, message_content: str, override_message=None
 ):
 
-    message = f"{username} ({uuid}): {message_content}"
+    message = f"{username}: {message_content}"
 
     if override_message:
         message = username + str(override_message)
 
     for client in connected_users:
         client_socket = client["client_socket"]
-        client_user_id = client["uuid"]
+        client_user_id = client["user_uuid"]
         if client_user_id != uuid:
             client_socket.send(message.encode())
-
-
-# Iterate through until you find an available username and return it
-def generate_uuid(user_db: dict) -> str:
-    used = set(user_db.values())
-    i = 0
-    while f"u{i}" in used:
-        i += 1
-    return f"u{i}"
 
 
 def start_server():
@@ -150,6 +113,9 @@ def start_server():
     server_socket.bind((HOST, PORT))
     server_socket.listen(MAX_CONNECTIONS)
     print(f"[LISTENING] Server is listening on {HOST}:{PORT}")
+
+    # Create DB if it does not exist already
+    create_db()
 
     # Start accepting client connections
     listen(server_socket)

@@ -2,8 +2,14 @@ import typer
 from rich import print
 from rich.table import Table
 
-from .user_config import (get_host, get_port, load_config, set_host, set_port,
-                          set_username)
+from .user_config import (
+    get_host,
+    get_port,
+    load_config,
+    set_host,
+    set_port,
+    set_username,
+)
 
 app = typer.Typer()
 
@@ -51,7 +57,7 @@ def chaddress(hostname: str, port: str):
 
 
 @app.command()
-def conf():
+def status():
     """
     Display the current user configuration found in user_conf.json.
     """
