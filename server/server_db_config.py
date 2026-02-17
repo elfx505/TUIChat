@@ -96,18 +96,17 @@ def update_user(database, new_username, new_password):
 
 
 def get_user(username):
-    with sqlite3.connect("chat.db") as conn:
+    with sqlite3.connect("db_server.db") as conn:
         conn.row_factory = sqlite3.Row
         query = "SELECT * FROM users WHERE username = ?"
         user = conn.execute(query, (username,)).fetchone()
 
-        if user:
-            return user  # Returns a dictionary-like object
-        return None  # User not found
+        # Convert to dict
+        return dict(user) if user else None
 
 
 def register_user(username, password_hash):
-    conn = sqlite3.connect("chat.db", timeout=10)
+    conn = sqlite3.connect("db_server.db", timeout=10)
 
     try:
         with conn:

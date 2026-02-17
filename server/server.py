@@ -34,25 +34,34 @@ def listen(server_socket):
 
         # Hash Password with bcrypt
         salt = bcrypt.gensalt()
-        hash_pass = bcrypt.hashpw(password, salt)
+
+        # Turn password into an array of bytes
+        password_bytes = password.encode("utf-8")
 
         # Check if username is already in the server db
         user_data = get_user(username)
         if user_data:
             # Check Hash to confirm identity
-            is_authentic: bool = bcrypt.checkpw(user_data["password"], hash_pass)
+            is_authentic: bool = bcrypt.checkpw(
+                password_bytes, user_data["password_hash"]
+            )
 
-        if not is_authentic:
-            client_socket.send("Authentication failed!".encode("utf-8"))
-            client_socket.close()
-            continue
+            if not is_authentic:
+                client_socket.send("Authentication failed!".encode("utf-8"))
+                client_socket.close()
+                continue
 
         # If the username does not exist
         if not user_data:
+            # Hash
+            hash_pass = bcrypt.hashpw(password_bytes, salt)
+
             register_user(username, hash_pass)
 
         # Add new client object to connected_users list
         client = get_user(username)
+        client["client_socket"] = client_socket
+
         connected_users.append(client)
         print(connected_users)
 
