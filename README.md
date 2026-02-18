@@ -3,9 +3,9 @@
 ## TO-DO
 
 - [ ] Description
-- [ ] Server Side Thread Safety
-  - [ ] Write Message Broadcasting Script
-  - [ ] Write Username and Password Update Script (Should only work when connected to a server)
+- [x] Server Side Thread Safety
+  - [x] Write Message Broadcasting Script
+  - [x] Write Username and Password Update Script (Should only work when connected to a server)
 - [ ] Client Side TUI
   - [ ] CSS
   - [ ] Info Toggle

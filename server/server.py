@@ -1,4 +1,3 @@
-import sqlite3
 import bcrypt
 import os
 import socket
@@ -7,8 +6,6 @@ from threading import Thread
 from server_db_config import (
     create_db,
     update_user,
-    add_message,
-    add_user,
     get_user,
     register_user,
     save_message,
@@ -28,77 +25,138 @@ def listen(server_socket):
         client_socket, address = server_socket.accept()
         print(f"[CONNECTED] {address} connected.")
 
-        auth_message = client_socket.recv(1024).decode("utf-8")
+        try:
+            initial_message = client_socket.recv(1024).decode("utf-8")
+            if not initial_message:
+                continue
 
-        username, password = auth_message.split("#")
-
-        # Hash Password with bcrypt
-        salt = bcrypt.gensalt()
-
-        # Turn password into an array of bytes
-        password_bytes = password.encode("utf-8")
-
-        # Check if username is already in the server db
-        user_data = get_user(username)
-        if user_data:
-            # Check Hash to confirm identity
-            is_authentic: bool = bcrypt.checkpw(
-                password_bytes, user_data["password_hash"]
-            )
-
-            if not is_authentic:
-                client_socket.send("Authentication failed!".encode("utf-8"))
+            # This allows the password itself to contain # symbols safely.
+            parts = initial_message.split("#", 2)
+            if len(parts) < 3:
+                client_socket.sendall("Invalid protocol format.".encode())
                 client_socket.close()
                 continue
 
-        # If the username does not exist
-        if not user_data:
-            # Hash
-            hash_pass = bcrypt.hashpw(password_bytes, salt)
+            request_type, username, password = parts
 
-            register_user(username, hash_pass)
+            # Turn password into an array of bytes
+            password_bytes = password.encode("utf-8")
 
-        # Add new client object to connected_users list
-        client = get_user(username)
-        client["client_socket"] = client_socket
+            # Check if username is already in the server db
+            user_data = get_user(username)
 
-        connected_users.append(client)
-        print(connected_users)
+            is_authentic: bool = False
 
-        broadcast_message(
-            username, client["user_uuid"], "", " has joined the chat!"
-        )  # Entered the chat message
+            if user_data:
+                # Ensure Bytes before checking
+                stored_hash = user_data["password_hash"]
+                if isinstance(stored_hash, str):
+                    stored_hash = stored_hash.encode("utf-8")
 
-        Thread(target=handle_client, args=(client,)).start()
+                # Check Hash to confirm identity
+                is_authentic = bcrypt.checkpw(password_bytes, stored_hash)
+
+                if not is_authentic:
+                    client_socket.sendall("Authentication failed!".encode("utf-8"))
+                    client_socket.close()
+                    continue
+
+            # --- CHUSER LOGIC ---
+            if request_type == "chuser" and not user_data:
+                client_socket.sendall(
+                    f"User [{username}] does not exist!".encode("utf-8")
+                )
+                client_socket.close()
+                continue
+
+            if request_type == "chuser" and is_authentic:
+                client_socket.sendall("AUTH_SUCCESS".encode("utf-8"))
+                new_credentials_message = client_socket.recv(1024).decode("utf-8")
+                new_username, new_password = new_credentials_message.split("#", 1)
+
+                if get_user(new_username) and username != new_username:
+                    client_socket.sendall("Username already in use!".encode("utf-8"))
+                    client_socket.close()
+                    continue
+
+                # Hash and convert to string for consistent DB storage
+                new_hash = bcrypt.hashpw(
+                    new_password.encode("utf-8"), bcrypt.gensalt()
+                ).decode("utf-8")
+
+                if update_user(new_username, new_hash, user_data["user_uuid"]):
+                    client_socket.sendall(
+                        f"Successfully updated user credentials!".encode("utf-8")
+                    )
+
+                client_socket.close()
+                continue
+
+            # --- AUTH / REGISTRATION LOGIC ---
+
+            # If the username does not exist
+            if request_type == "auth" and not user_data:
+                # Hash
+                hashed = bcrypt.hashpw(password_bytes, bcrypt.gensalt()).decode("utf-8")
+                register_user(username, hashed)
+
+            # Add new client object to connected_users list
+            client = get_user(username)
+            client["client_socket"] = client_socket
+
+            connected_users.append(client)
+            print(connected_users)
+
+            client_socket.sendall("Successful Authentication!".encode("utf-8"))
+
+            broadcast_message(
+                username, client["user_uuid"], "", " has joined the chat!"
+            )  # Entered the chat message
+
+            Thread(target=handle_client, args=(client,)).start()
+
+        except Exception as e:
+            print(f"[ERROR] Error during initial handshake: {e}")
+            client_socket.close()
 
 
 def handle_client(client):
-
     username = client["username"]
     user_id = client["user_uuid"]
     client_socket = client["client_socket"]
 
-    while True:
+    try:
+        while True:
+            # Receive data
+            data = client_socket.recv(1024)
 
-        # Listen for message from client
-        data = client_socket.recv(1024)
-        message_content = data.decode("utf-8")
+            # Check for empty data
+            if not data:
+                break
 
-        if message_content.strip() == "/exit" or not message_content.strip():
-            broadcast_message(
-                username, user_id, "", " has left the chat!"
-            )  # Left The Chat Message
+            message_content = data.decode("utf-8").strip()
 
+            # Handle explicit exit command
+            if message_content == "/exit":
+                break
+
+            # Handle actual messages
+            if message_content:
+                broadcast_message(username, user_id, message_content)
+                save_message(user_id, message_content)
+
+    except (ConnectionResetError, BrokenPipeError):
+        print(f"[DISCONNECT] {username} lost connection abruptly.")
+    except Exception as e:
+        print(f"[ERROR] {username} thread encountered error: {e}")
+    finally:
+        # Guaranteed Cleanup
+        if client in connected_users:
             connected_users.remove(client)
-            client_socket.close()
-            break
-        else:
-            broadcast_message(
-                username, user_id, message_content
-            )  # Broadcast actual message across channel clients
 
-        # Append message to db
-        save_message(user_id, message_content)
+        client_socket.close()
+        broadcast_message(username, user_id, "", " has left the chat!")
+        print(f"[INFO] {username} has been cleaned up.")
 
 
 def broadcast_message(
@@ -114,7 +172,7 @@ def broadcast_message(
         client_socket = client["client_socket"]
         client_user_id = client["user_uuid"]
         if client_user_id != uuid:
-            client_socket.send(message.encode())
+            client_socket.sendall(message.encode())
 
 
 def start_server():

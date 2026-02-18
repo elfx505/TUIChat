@@ -11,6 +11,8 @@ from .user_config import (
     set_username,
 )
 
+from .client import attempt_connect, talk_to_server, update_user_request
+
 app = typer.Typer()
 
 
@@ -32,16 +34,16 @@ def connect(
     Default host and port are taken from the user_conf.json config file.
     """
     print(f"[green]Connecting to server at [{hostname}:{port}]...[/green]")
+    talk_to_server(attempt_connect(get_host(), int(get_port())))
 
 
 @app.command()
-def chuser(username: str):
+def chuser():
     """
-    Set a new username. Changes the user_conf.json config file.
+    Set a new username and password for specific host. Changes the user_conf.json config file.
     """
 
-    set_username(username)
-    print(f"New Username: [green]{username}[/green]")
+    update_user_request(attempt_connect(get_host(), int(get_port())))
 
 
 @app.command()
