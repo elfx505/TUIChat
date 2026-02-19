@@ -1,6 +1,7 @@
 import os
 import socket
 from threading import Thread
+from rich import print
 
 from .user_config import get_host, get_port, get_username, set_username
 
@@ -31,10 +32,10 @@ def receive_message(s: socket.socket):
     while True:
         server_message = s.recv(1024).decode()
         if not server_message.strip():
-            print("\033[1;31;40mConnection to server closed!\033[0m")
+            print("[red]Connection to server closed![/red]")
             os._exit(0)
 
-        print("\033[1;31;40m" + str(server_message) + "\033[0m")
+        print("[blue]" + str(server_message) + "[/blue]")
 
 
 def send_message(s: socket.socket):
@@ -65,10 +66,10 @@ def update_user_request(s: socket.socket):
         server_message = s.recv(1024).decode("utf-8")
 
         if server_message.strip() != "AUTH_SUCCESS":
-            print(f"Server denied request: {server_message}")
+            print(f"[red]Server denied request: {server_message}[/red]")
             return
 
-        print("Authentication successful.")
+        print("[green]Authentication successful.[/green]")
         new_username = input("Enter your new Username: ")
         new_password = input("Enter your new Password: ")
 
@@ -76,18 +77,19 @@ def update_user_request(s: socket.socket):
         s.sendall(f"{new_username}#{new_password}".encode())
 
         final_response = s.recv(1024).decode("utf-8")
-        print(f"Server: {final_response}")
+        print(f"[blue]Server: {final_response}[/blue]")
 
         if final_response == "Successfully updated user credentials!":
             set_username(new_username)
-            print(f"New Username: {new_username}")
+            print(f"New Username: [green]{new_username}[/green]")
 
     except socket.timeout:
-        print("Error: The server is taking too long to respond.")
+        print("[red]Error: The server is taking too long to respond.[/red]")
     except socket.error as e:
-        print(f"Socket error occurred: {e}")
+        print(f"[red]Socket error occurred: {e}[/red]")
     except Exception as e:
-        print(f"An unexpected error occurred: {e}")
+        print(f"[red]An unexpected error occurred: {e}[/red]")
+
     finally:
         # Reset timeout to default (blocking) for other functions if necessary
         s.settimeout(None)

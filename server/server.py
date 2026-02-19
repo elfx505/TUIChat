@@ -1,6 +1,8 @@
 import bcrypt
 import os
 import socket
+import signal
+import sys
 from pathlib import Path
 from threading import Thread
 from server_db_config import (
@@ -18,14 +20,31 @@ DB_FILE_PATH = Path(BASE_DIR) / "server_db.json"
 MAX_CONNECTIONS = 5
 
 connected_users = []
+server_running: bool = True
+
+
+def signal_handler(sig, frame):
+    # Map the signal number back to a name for better logging
+    signame = signal.Signals(sig).name
+    print(f"\n[SIGNAL] Received {signame}. Shutting down safely...")
+
+    # Trigger your global flag
+    global server_running
+    server_running = False
+
+
+for sig in (signal.SIGINT, signal.SIGTERM, signal.SIGHUP):
+    signal.signal(sig, signal_handler)
 
 
 def listen(server_socket):
-    while True:
-        client_socket, address = server_socket.accept()
-        print(f"[CONNECTED] {address} connected.")
-
+    while server_running:
         try:
+            server_socket.settimeout(1.0)
+
+            client_socket, address = server_socket.accept()
+            print(f"[CONNECTED] {address} connected.")
+
             initial_message = client_socket.recv(1024).decode("utf-8")
             if not initial_message:
                 continue
@@ -105,7 +124,10 @@ def listen(server_socket):
             client["client_socket"] = client_socket
 
             connected_users.append(client)
-            print(connected_users)
+
+            print(
+                f"[INFO] Client [{client["user_uuid"]}: {client["username"]}] currently online!"
+            )
 
             client_socket.sendall("Successful Authentication!".encode("utf-8"))
 
@@ -113,11 +135,14 @@ def listen(server_socket):
                 username, client["user_uuid"], "", " has joined the chat!"
             )  # Entered the chat message
 
-            Thread(target=handle_client, args=(client,)).start()
+            Thread(target=handle_client, args=(client,), daemon=True).start()
+
+        except socket.timeout:
+            continue
 
         except Exception as e:
             print(f"[ERROR] Error during initial handshake: {e}")
-            client_socket.close()
+            break
 
 
 def handle_client(client):
@@ -125,32 +150,36 @@ def handle_client(client):
     user_id = client["user_uuid"]
     client_socket = client["client_socket"]
 
+    client_socket.settimeout(1.0)
+
     try:
-        while True:
-            # Receive data
-            data = client_socket.recv(1024)
+        while server_running:
+            try:
+                data = client_socket.recv(1024)
+                if not data:
+                    break
 
-            # Check for empty data
-            if not data:
-                break
+                message_content = data.decode("utf-8").strip()
 
-            message_content = data.decode("utf-8").strip()
+                if message_content == "/exit":
+                    break
 
-            # Handle explicit exit command
-            if message_content == "/exit":
-                break
+                if message_content:
+                    broadcast_message(username, user_id, message_content)
+                    save_message(user_id, message_content)
 
-            # Handle actual messages
-            if message_content:
-                broadcast_message(username, user_id, message_content)
-                save_message(user_id, message_content)
+            except socket.timeout:
+                # This is normal; just loop back and check server_running
+                continue
+            except (ConnectionResetError, BrokenPipeError):
+                print(f"[DISCONNECT] {username} lost connection abruptly.")
+                break  # Exit the while loop to hit the finally block
 
-    except (ConnectionResetError, BrokenPipeError):
-        print(f"[DISCONNECT] {username} lost connection abruptly.")
     except Exception as e:
         print(f"[ERROR] {username} thread encountered error: {e}")
+
     finally:
-        # Guaranteed Cleanup
+        # --- GUARANTEED CLEANUP (Runs only once when loop ends) ---
         if client in connected_users:
             connected_users.remove(client)
 
@@ -177,15 +206,24 @@ def broadcast_message(
 
 def start_server():
     server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    server_socket.bind((HOST, PORT))
-    server_socket.listen(MAX_CONNECTIONS)
-    print(f"[LISTENING] Server is listening on {HOST}:{PORT}")
+    server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 
-    # Create DB if it does not exist already
-    create_db()
+    try:
+        server_socket.bind((HOST, PORT))
+        server_socket.listen(MAX_CONNECTIONS)
+        print(f"[LISTENING] Server is listening on {HOST}:{PORT}")
 
-    # Start accepting client connections
-    listen(server_socket)
+        # Create DB if it does not exist already
+        create_db()
+
+        # Start accepting client connections
+        listen(server_socket)
+    finally:
+        print("[CLEANUP] Closing all connections...")
+        for user in connected_users:
+            user["client_socket"].close()
+        server_socket.close()
+        print("[OFFLINE] Server is down.")
 
 
 if __name__ == "__main__":
