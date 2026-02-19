@@ -30,6 +30,8 @@ def save_config(cfg: dict):
     Writes config dictionary to .json file at CONFIG_PATH.
 
     """
+    CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
+
     CONFIG_PATH.write_text(json.dumps(cfg, indent=2))
 
 
