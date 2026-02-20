@@ -95,5 +95,40 @@ def update_user_request(s: socket.socket):
         s.settimeout(None)
 
 
+def register_user(s: socket.socket):
+    try:
+        s.settimeout(10.0)
+
+        # Send Registration Request Message
+        s.sendall(f"reg#{get_username()}#".encode())
+        server_message = s.recv(1024).decode("utf-8")
+        print(f"[blue]Server: {server_message}[/blue]")
+
+        username = input("Enter a username: ")
+        password = input("Enter a password: ")
+
+        registration_message = f"{username}#{password}"
+
+        s.sendall(registration_message.encode("utf-8"))
+        final_response = s.recv(1024).decode("utf-8")
+
+        print(f"[blue]Server: {final_response}[/blue]")
+
+        if final_response == "Successfully Registered User!":
+            set_username(username)
+            print(f"Registered User: [green]{username}[/green]")
+
+    except socket.timeout:
+        print("[red]Error: The server is taking too long to respond.[/red]")
+    except socket.error as e:
+        print(f"[red]Socket error occurred: {e}[/red]")
+    except Exception as e:
+        print(f"[red]An unexpected error occurred: {e}[/red]")
+
+    finally:
+        # Reset timeout to default (blocking) for other functions if necessary
+        s.settimeout(None)
+
+
 if __name__ == "__main__":
     talk_to_server(attempt_connect(get_host(), int(get_port())))

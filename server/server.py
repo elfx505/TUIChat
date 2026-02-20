@@ -52,11 +52,46 @@ def listen(server_socket):
             # This allows the password itself to contain # symbols safely.
             parts = initial_message.split("#", 2)
             if len(parts) < 3:
-                client_socket.sendall("Invalid protocol format.".encode())
+                client_socket.sendall("Invalid protocol format.".encode("utf-8"))
                 client_socket.close()
                 continue
 
             request_type, username, password = parts
+
+            # --- REGISTRATION LOGIC ---
+            if request_type == "reg":
+                # Initial Handshake Message
+                client_socket.sendall("Registering New User...".encode("utf-8"))
+                # Receive Formatted User Message
+                new_user_message = client_socket.recv(1024).decode("utf-8")
+                if not new_user_message:
+                    print("User Failed to send new credentials.")
+                    continue
+                parts = new_user_message.split("#", 1)
+                if len(parts) < 2:
+                    client_socket.sendall("Invalid protocol format".encode("utf-8"))
+                    client_socket.close()
+                    continue
+
+                fresh_username, password = parts
+
+                # Check if username is already in use
+                if get_user(fresh_username):
+                    client_socket.sendall("Username already in use!".encode("utf-8"))
+                    client_socket.close()
+                    continue
+
+                # Turn password into an array of bytes
+                password_bytes = password.encode("utf-8")
+
+                # Hash
+                hashed = bcrypt.hashpw(password_bytes, bcrypt.gensalt()).decode("utf-8")
+                register_user(username, hashed)
+
+                client_socket.sendall(f"Successfully Registered User!".encode("utf-8"))
+
+                client_socket.close()
+                continue
 
             # Turn password into an array of bytes
             password_bytes = password.encode("utf-8")
@@ -115,9 +150,11 @@ def listen(server_socket):
 
             # If the username does not exist
             if request_type == "auth" and not user_data:
-                # Hash
-                hashed = bcrypt.hashpw(password_bytes, bcrypt.gensalt()).decode("utf-8")
-                register_user(username, hashed)
+                client_socket.sendall(
+                    f"User [{username}] does not exist!".encode("utf-8")
+                )
+                client_socket.close()
+                continue
 
             # Add new client object to connected_users list
             client = get_user(username)

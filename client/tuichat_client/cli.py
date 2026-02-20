@@ -11,7 +11,12 @@ from .user_config import (
     set_username,
 )
 
-from .client import attempt_connect, talk_to_server, update_user_request
+from .client import (
+    attempt_connect,
+    talk_to_server,
+    update_user_request,
+    register_user,
+)
 
 app = typer.Typer()
 
@@ -25,16 +30,27 @@ def root():
 
 
 @app.command()
-def connect(
-    hostname: str = typer.Option(get_host(), "--hostname", "-h"),
-    port: str = typer.Option(get_port(), "--port", "-p"),
-):
+def connect():
     """
     Connect to the chat server at the indicated hostname and port address.
-    Default host and port are taken from the user_conf.json config file.
+    Host and Port are taken from the user_conf.json config file.
     """
+    hostname = get_host()
+    port = int(get_port())
     print(f"[green]Connecting to server at [{hostname}:{port}]...[/green]")
-    talk_to_server(attempt_connect(get_host(), int(get_port())))
+    talk_to_server(attempt_connect(hostname, port))
+
+
+@app.command()
+def register():
+    """
+    Connect to specified host and begin registering the user.
+    """
+    print(
+        f"[green]Attempting to register user to server at [{get_host()}:{get_port()}]...[/green]"
+    )
+
+    register_user(attempt_connect(get_host(), int(get_port())))
 
 
 @app.command()
@@ -47,7 +63,10 @@ def chuser():
 
 
 @app.command()
-def chaddress(hostname: str, port: str):
+def chaddress(
+    hostname: str = typer.Option(get_host(), "--hostname", "-h"),
+    port: str = typer.Option(get_port(), "--port", "-p"),
+):
     """
     Set a new server address to connect to. Changes the user_conf.json config file.
     """
