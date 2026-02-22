@@ -5,6 +5,7 @@ from rich.table import Table
 from .user_config import (
     get_host,
     get_port,
+    get_username,
     load_config,
     set_host,
     set_port,
@@ -37,7 +38,8 @@ def connect():
     """
     hostname = get_host()
     port = int(get_port())
-    print(f"[green]Connecting to server at [{hostname}:{port}]...[/green]")
+    print(f"Current Account: [green]{get_username()}[/green]")
+    print(f"Connecting to [green]{hostname}:{port}[/green][white]...[/white]")
     talk_to_server(attempt_connect(hostname, port))
 
 
@@ -75,6 +77,16 @@ def chaddress(
     set_port(port)
 
     print(f"New server address: [green]{hostname}:{port}[/green]")
+
+
+@app.command()
+def chaccount(username: str):
+    """
+    Set a new username locally. Changes the user_conf.json file.
+    """
+    set_username(username)
+
+    print(f"Current Account: [green]{username}[/green]")
 
 
 @app.command()

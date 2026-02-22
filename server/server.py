@@ -50,7 +50,7 @@ def listen(server_socket):
                 continue
 
             # This allows the password itself to contain # symbols safely.
-            parts = initial_message.split("#", 2)
+            parts = initial_message.split("|", 2)
             if len(parts) < 3:
                 client_socket.sendall("Invalid protocol format.".encode("utf-8"))
                 client_socket.close()
@@ -67,7 +67,7 @@ def listen(server_socket):
                 if not new_user_message:
                     print("User Failed to send new credentials.")
                     continue
-                parts = new_user_message.split("#", 1)
+                parts = new_user_message.split("|", 1)
                 if len(parts) < 2:
                     client_socket.sendall("Invalid protocol format".encode("utf-8"))
                     client_socket.close()
@@ -86,7 +86,7 @@ def listen(server_socket):
 
                 # Hash
                 hashed = bcrypt.hashpw(password_bytes, bcrypt.gensalt()).decode("utf-8")
-                register_user(username, hashed)
+                register_user(fresh_username, hashed)
 
                 client_socket.sendall(f"Successfully Registered User!".encode("utf-8"))
 

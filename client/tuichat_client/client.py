@@ -49,7 +49,7 @@ def talk_to_server(s: socket.socket):
     password = input("Enter your Password: ")
 
     # Send Register Message and await response from server
-    s.send(f"auth#{get_username()}#{password}".encode())
+    s.send(f"auth|{get_username()}|{password}".encode())
 
     Thread(target=receive_message, args=(s,), daemon=True).start()
     send_message(s)
@@ -62,7 +62,7 @@ def update_user_request(s: socket.socket):
         password = input("Enter your Password: ")
 
         # Send Update-Credentials Request Message
-        s.sendall(f"chuser#{get_username()}#{password}".encode())
+        s.sendall(f"chuser|{get_username()}|{password}".encode())
         server_message = s.recv(1024).decode("utf-8")
 
         if server_message.strip() != "AUTH_SUCCESS":
@@ -71,10 +71,13 @@ def update_user_request(s: socket.socket):
 
         print("[green]Authentication successful.[/green]")
         new_username = input("Enter your new Username: ")
+        if "|||" in new_username:
+            print("[red]Invalid Character '|'![/red]")
+            return
         new_password = input("Enter your new Password: ")
 
         # Send the new credentials
-        s.sendall(f"{new_username}#{new_password}".encode())
+        s.sendall(f"{new_username}|{new_password}".encode())
 
         final_response = s.recv(1024).decode("utf-8")
         print(f"[blue]Server: {final_response}[/blue]")
@@ -100,14 +103,17 @@ def register_user(s: socket.socket):
         s.settimeout(10.0)
 
         # Send Registration Request Message
-        s.sendall(f"reg#{get_username()}#".encode())
+        s.sendall(f"reg|{get_username()}|".encode())
         server_message = s.recv(1024).decode("utf-8")
         print(f"[blue]Server: {server_message}[/blue]")
 
         username = input("Enter a username: ")
+        if "|" in username:
+            print("[red]Invalid Character '|'![/red]")
+            return
         password = input("Enter a password: ")
 
-        registration_message = f"{username}#{password}"
+        registration_message = f"{username}|{password}"
 
         s.sendall(registration_message.encode("utf-8"))
         final_response = s.recv(1024).decode("utf-8")
